@@ -1,21 +1,13 @@
 
-import ctypes
 import sys
-import subprocess
-import os
-import os.path
-import winreg
 import argparse
+import env_utils
+import locate_cl_exe
 
 
-def dirAbsolutePath(folder):
-    return os.path.abspath(os.path.realpath(folder))
-
-
-THIS_DIR = dirAbsolutePath(os.path.dirname(__file__))
-CLCACHE_REPO_DIR = dirAbsolutePath(THIS_DIR + "\\..")
-MSVC_BIN_FOLDER = "C:\\Program Files (x86)\\Microsoft Visual Studio 14.0\\VC\\bin\\"
-MSBUILD_USER_SETTINGS_DIR = dirAbsolutePath(os.getenv('APPDATA') + "\\..\\Local\\Microsoft\\MSBuild\\v4.0")
+THIS_DIR = env_utils.fileDirNameAbsolute(__file__)
+CLCACHE_REPO_DIR = env_utils.dirNameAbsolute(THIS_DIR + "\\..")
+MSBUILD_USER_SETTINGS_DIR = env_utils.appDataPathLocal() + "\\Microsoft\\MSBuild\\v4.0"
 MSBUILD_SETTING_FILE_CONTENT_CLCACHE = """<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ImportGroup Label="PropertySheets">
@@ -24,6 +16,7 @@ MSBUILD_SETTING_FILE_CONTENT_CLCACHE = """<?xml version="1.0" encoding="utf-8"?>
   <PropertyGroup />
   <PropertyGroup>
     <CLToolExe>clcache.exe</CLToolExe>
+    <CLToolPath>PIP_SCRIPTS_DIR</CLToolPath>
   </PropertyGroup>
   <ItemDefinitionGroup />
   <ItemGroup />
@@ -41,122 +34,19 @@ MSBUILD_SETTING_FILE_CONTENT_NO_CLCACHE = """<?xml version="1.0" encoding="utf-8
 """
 
 
-def isAdmin():
-    return ctypes.windll.shell32.IsUserAnAdmin()
-
-
-def currentFuncName(n=0):
-    return sys._getframe(n + 1).f_code.co_name #pylint: disable=W0212
-
-
-def hasProgramInPath(prog):
-    print("Looking for " + prog + " in PATH")
-    result = subprocess.call("where " + prog)
-    if result != 0:
-        print(prog + " not found in PATH")
-    return result == 0
-
-
-def whereProgram(prog):
-    allProgrs = subprocess.check_output("where " + prog).decode("utf-8")
-    firstProg = allProgrs.split("\r")[0]
-    return firstProg
-
-
-def showCmd(cmd):
-    print("====> " + cmd)
-
-
-def callAndShowCmd(command: str, cwd: str = None) -> bool:
-    if cwd is not None:
-        print("====> " + command + "(in folder " + cwd +  ")")
-    else:
-        print("====> " + command)
-    if cwd is not None:
-        return subprocess.call(command, cwd=cwd) == 0
-    else:
-        return subprocess.call(command) == 0
-
-
-def implSetAndStoreEnvVariable(name, value, allUsers=False):
-    """
-    Stocke une variable d'environnement touts utilisateurs sous windows
-    """
-    if allUsers:
-        cmd = "SETX {0} \"{1}\" /M".format(name, value)
-    else:
-        cmd = "SETX {0} \"{1}\"".format(name, value)
-    if not callAndShowCmd(cmd):
-        return False
-    os.environ[name] = value
-    return True
-
-
-def setAndStoreEnvVariable(name, value):
-    return implSetAndStoreEnvVariable(name, value, allUsers=isAdmin())
-
-
-def implRemoveEnvVariable(name, allUsers=False):
-    if allUsers:
-        command = "REG DELETE HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment /F /V " + name
-    else:
-        command = "REG DELETE HKCU\\Environment /F /V " + name
-    if not callAndShowCmd(command):
-        return False
-    if name is os.environ:
-        os.environ.pop(name, None)
-    return True
-
-
-def removeEnvVariable(name):
-    return implRemoveEnvVariable(name, allUsers=isAdmin())
-
-
-def implReadEnvVariableFromRegistry(name, allUsers=False) -> str:
-    if allUsers:
-        reg = winreg.ConnectRegistry(None, winreg.HKEY_LOCAL_MACHINE)
-        key = winreg.OpenKey(reg, r"SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment")
-    else:
-        reg = winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER)
-        key = winreg.OpenKey(reg, r"Environment")
-    try:
-        result = winreg.QueryValueEx(key, name)
-    except FileNotFoundError:
-        return None
-    return result[1]
-
-
-def readEnvVariableFromRegistry(name):
-    return implReadEnvVariableFromRegistry(name, allUsers=isAdmin())
-
-
-def showStepIntro(details=0):
-    print()
-    print("######################################################################")
-    print(details + " (" + currentFuncName(1) + ")")
-    print("######################################################################")
-
-
 def installClcache():
-    showStepIntro("Installing clcache")
-    status = callAndShowCmd("pip install .", cwd=CLCACHE_REPO_DIR)
+    env_utils.showFunctionIntro("Installing clcache")
+    status = env_utils.callAndShowCmd("pip install .", cwd=CLCACHE_REPO_DIR)
     if not status:
         return False
-    if not hasProgramInPath("clcache"):
+    if not env_utils.hasProgramInPath("clcache"):
         print("Humm. its seems that the install failed")
         return False
     return True
 
 
-def listFiles(folder, appendFolder=True):
-    files = [f for f in os.listdir(folder) if os.path.isfile(os.path.join(folder, f))]
-    if appendFolder:
-        files = [os.path.join(folder, f) for f in files]
-    return files
-
-
 def implCopyMsvcPref(prefContent):
-    files = listFiles(MSBUILD_USER_SETTINGS_DIR)
+    files = env_utils.listFiles(MSBUILD_USER_SETTINGS_DIR)
     for file in files:
         with open(file, 'w') as f:
             f.write(prefContent)
@@ -165,46 +55,20 @@ def implCopyMsvcPref(prefContent):
 
 
 def copyMsvcPrefClcache():
-    showStepIntro("Force clcache via Msbbuild user settings")
-    return implCopyMsvcPref(MSBUILD_SETTING_FILE_CONTENT_CLCACHE)
+    env_utils.showFunctionIntro("Force clcache via Msbbuild user settings")
+    prefContent = MSBUILD_SETTING_FILE_CONTENT_CLCACHE.replace(
+        "PIP_SCRIPTS_DIR", env_utils.pipScriptsDir())
+    return implCopyMsvcPref(prefContent)
 
 
 def copyMsvcPrefOriginal():
-    showStepIntro("Disable clcache via Msbbuild user settings")
+    env_utils.showFunctionIntro("Disable clcache via Msbbuild user settings")
     return implCopyMsvcPref(MSBUILD_SETTING_FILE_CONTENT_NO_CLCACHE)
 
 
-def clcacheSetEnv():
-    showStepIntro("set CLCACHE_CL env variable")
-    if not setAndStoreEnvVariable("CLCACHE_CL", MSVC_BIN_FOLDER + "\\cl.exe"):
-        return False
-    # CLCACHE_OBJECT_CACHE_TIMEOUT_MS
-    return True
-
-
-def enableLogs():
-    return setAndStoreEnvVariable("CLCACHE_LOG", "1")
-
-
-def disableLogs():
-    return removeEnvVariable("CLCACHE_LOG")
-
-
 def showClCacheUsage():
-    showStepIntro("Note about clcache usage:")
-    subprocess.run("clcache --help")
-    return True
-
-
-def fullClcacheSetup():
-    if not installClcache():
-        return False
-    if not copyMsvcPrefClcache():
-        return False
-    if not clcacheSetEnv():
-        return False
-    if not showClCacheUsage():
-        return False
+    env_utils.showFunctionIntro("Note about clcache usage:")
+    env_utils.callAndShowCmd("clcache --help")
     return True
 
 
@@ -215,12 +79,12 @@ def clCacheDisable():
 
 
 def showStatus():
-    if hasProgramInPath("clcache"):
+    if env_utils.hasProgramInPath("clcache"):
         print("clcache is in your PATH")
     else:
         print("clcache is not installed")
 
-    if readEnvVariableFromRegistry("CLCACHE_LOG") is not None:
+    if env_utils.readEnvVariableFromRegistry("CLCACHE_LOG") is not None:
         print("logs are enabled")
     else:
         print("logs are disabled")
@@ -236,42 +100,105 @@ def showStatus():
         print("clcache is *ENABLED* in " + MSBUILD_USER_SETTINGS_DIR)
     else:
         print("clcache is *NOT ENABLED* in " + MSBUILD_USER_SETTINGS_DIR)
+    
+    cl = env_utils.readEnvVariableFromRegistry("CLCACHE_CL")
+    print("CLCACHE_CL (real compiler) is :" + cl)
     print("call clcache -s for statistics")
     return True
 
 
 def makeInitialChecks():
-    if not hasProgramInPath("python"):
+    if not env_utils.hasProgramInPath("python"):
         print("This program needs python 3")
         return False
-    if not hasProgramInPath("pip"):
+    if not env_utils.hasProgramInPath("pip"):
         print("This program needs pip 3")
         return False
 
-    if not "python 3" in subprocess.check_output(["python", "--version"]).decode("utf-8").lower():
+    if not "python 3" in env_utils.callCmdGetOutput("python --version").lower():
         print("Bad python version : this program needs python 3")
         return False
 
-    if not "python 3" in subprocess.check_output(["pip", "--version"]).decode("utf-8").lower():
+    if not "python 3" in env_utils.callCmdGetOutput("pip --version").lower():
         print("Bad pip version : this program needs pip for python 3")
         return False
 
-    pipScriptsDir = os.path.dirname(whereProgram("python")) + "\\Scripts"
-    if pipScriptsDir.lower() not in os.environ["PATH"].lower():
+    pipScriptsDir = env_utils.pipScriptsDir()
+    if pipScriptsDir.lower() not in env_utils.readPathFromRegistry().lower():
         print("Can't find pip_scripts_dir in your PATH. pip_scripts_dir=" + pipScriptsDir)
         print("Please add this to your PATH")
         return False
     return True
 
 
+def selectCl():
+    env_utils.showFunctionIntro("Select cl compiler:")
+    clExesList = locate_cl_exe.findClExesList()
+    locate_cl_exe.printClList(clExesList)
+    while True:
+        answer = input("Enter the number corresponding to the desired compiler: ")
+        try:
+            nb = int(answer)
+        except ValueError:
+            print("Enter a number between 1 and " + str(len(clExesList)))
+            continue
+        if nb >= 1 and nb <= len(clExesList):
+            clExe = clExesList[nb - 1].installDir + "\\cl.exe"
+            print("Selected : " + clExe)
+            env_utils.setAndStoreEnvVariable("CLCACHE_CL", clExe)
+            return True
+        else:
+            print("Enter a number between 1 and " + str(len(clExesList)))
+    return False
+
+
+def fullClcacheSetup():
+    if not installClcache():
+        return False
+    if not copyMsvcPrefClcache():
+        return False
+    if not selectCl():
+        return False
+    if not showClCacheUsage():
+        return False
+    return True
+
+
 def main():
-    epilog = """Actions summary:
+    epilog = r"""Actions summary:
     status       : Show the install status and tells if clcache is enabled    
-    install:     : Install and enable clcache for msbuild integration"
+    install:     : Install and enable clcache for msbuild integration" 
+                  (will let you choose between the available cl.exe)
     disable:     : Disable clcache
     enable_logs  : Activate clcache logs during builds
     disable_logs : Disable clcache logs during builds
-    """
+    show_cl_list : List available cl.exe compilers
+    select_cl    : Choose which cl.exe to activate
+
+What this script does:
+**********************
+
+* Check that python3 and pip3 are installed and are in the PATH
+* Check that the pip installed scripts are in the PATH (PYTHONHOME\Scripts)
+* Call `pip install .` from the repo and check that clcache is then in the PATH.
+  `clcache` will subsequently be used from the PYTHONHOME\\Scripts directory.
+* Modify the user msbuild preference files inside `%AppData%\..\Local\Microsoft\MSBuild\v4.0`
+  so that clcache becomes the default compiler. (These prefs are shared between MSVC 2010 to 2017).
+* Find all cl.exes version on your computer (for MSVC 2010 to MSVC 2017), and allows you 
+  to select the correct one, by showing a detailed list of their version and target architecture.
+* Set the env variable `CLCACHE_CL` with the correct path to cl.exe
+
+As additional options, this script can also 
+* change the cache location
+* change the cache size
+* change the timeout CLCACHE_OBJECT_CACHE_TIMEOUT_MS
+
+Caveat
+******
+since the msbuild preference files inside `%AppData%\..\Local\Microsoft\MSBuild\v4.0` are shared
+between different MSVC installations, clcache will be activated for all instances of MSVC.
+
+    """.replace("MSBUILD_USER_SETTINGS_DIR", MSBUILD_USER_SETTINGS_DIR)
     helpTimeout = """clcache object cache timeout in seconds
     (increase if you have failures during your build)
     """
@@ -280,7 +207,7 @@ def main():
         epilog=epilog,
         formatter_class=argparse.RawDescriptionHelpFormatter
         )
-    choices = ["status", "install", "disable", "enable_logs", "disable_logs"]
+    choices = ["status", "install", "disable", "enable_logs", "disable_logs", "show_cl_list", "select_cl"]
     parser.add_argument("action", choices=choices, help="action")
     parser.add_argument("--cachedir", help="clcache directory")
     parser.add_argument("--cache_size", help="clcache size in Go", type=int, default=0)
@@ -304,24 +231,30 @@ def main():
         if not clCacheDisable():
             return False
     elif args.action == "enable_logs":
-        if not enableLogs():
+        if not env_utils.setAndStoreEnvVariable("CLCACHE_LOG", "1"):
             return False
     elif args.action == "disable_logs":
-        if not disableLogs():
+        if not env_utils.removeEnvVariable("CLCACHE_LOG"):
             return False
+    elif args.action == "show_cl_list":
+        locate_cl_exe.printClList(locate_cl_exe.findClExesList())
+        return True
+    elif args.action == "select_cl":
+        selectCl()
+        return True
 
     if args.cachedir is not None:
-        setAndStoreEnvVariable("CLCACHE_DIR", args.cachedir)
+        env_utils.setAndStoreEnvVariable("CLCACHE_DIR", args.cachedir)
 
     if args.cache_size > 0:
         giga = 1024 * 1024 * 1024
         byteSize = giga * args.cache_size
-        if not callAndShowCmd("clcache -M " +str(byteSize)):
+        if not env_utils.callAndShowCmd("clcache -M " +str(byteSize)):
             return False
 
     if args.clcache_timeout > 0:
         timeMs = args.clcache_timeout * 1000
-        setAndStoreEnvVariable("CLCACHE_OBJECT_CACHE_TIMEOUT_MS", str(timeMs))
+        env_utils.setAndStoreEnvVariable("CLCACHE_OBJECT_CACHE_TIMEOUT_MS", str(timeMs))
 
     return True
 
