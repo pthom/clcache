@@ -5,6 +5,31 @@ import os.path
 import sys
 import subprocess
 import platform
+# import winshell
+from win32com.client import Dispatch
+
+def createShortcut(src_file, dst_shortcut_path):
+    path = os.path.join(dst_shortcut_path)
+    wDir = os.path.dirname(src_file)
+    icon = src_file
+    shell = Dispatch('WScript.Shell')
+    shortcut = shell.CreateShortCut(path)
+    shortcut.Targetpath = src_file
+    shortcut.WorkingDirectory = wDir
+    shortcut.IconLocation = icon
+    shortcut.save()
+    print("Created shortcut : {} points to {}".format(dst_shortcut_path, src_file))
+
+
+def removeFile(filename):
+    os.remove(filename)
+    print("Removed file " +  filename)
+
+
+def runProcessDetached(command):
+    pid = subprocess.Popen(command).pid
+    print("Launched detached process with pid={} for command {}".format(pid, command))
+    return pid
 
 
 def shortDirectoryName(folder):
