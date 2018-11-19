@@ -72,12 +72,6 @@ def showClCacheUsage():
     return True
 
 
-def clCacheDisable():
-    if not copyMsvcPrefOriginal():
-        return False
-    return True
-
-
 def showStatus():
     if env_utils.hasProgramInPath("clcache"):
         print("clcache is in your PATH")
@@ -167,9 +161,14 @@ def fullClcacheSetup():
 def main():
     epilog = r"""Actions summary:
     status       : Show the install status and tells if clcache is enabled    
-    install:     : Install and enable clcache for msbuild integration" 
+    install:     : Install and enable clcache for msbuild integration
                   (will let you choose between the available cl.exe)
+    enable :     : Enable clcache for msbuild:
+                   Modifies the user msbuild preference files 
+                   inside APPDATAPATHLOCAL\Microsoft\MSBuild\v4.0
     disable:     : Disable clcache
+                   Modifies the user msbuild preference files 
+                   inside APPDATAPATHLOCAL\Microsoft\MSBuild\v4.0
     enable_logs  : Activate clcache logs during builds
     disable_logs : Disable clcache logs during builds
     show_cl_list : List available cl.exe compilers
@@ -182,7 +181,7 @@ What this script does:
 * Check that the pip installed scripts are in the PATH (PYTHONHOME\Scripts)
 * Call `pip install .` from the repo and check that clcache is then in the PATH.
   `clcache` will subsequently be used from the PYTHONHOME\\Scripts directory.
-* Modify the user msbuild preference files inside `%AppData%\..\Local\Microsoft\MSBuild\v4.0`
+* Modify the user msbuild preference files inside `APPDATAPATHLOCAL\Microsoft\MSBuild\v4.0`
   so that clcache becomes the default compiler. (These prefs are shared between MSVC 2010 to 2017).
 * Find all cl.exes version on your computer (for MSVC 2010 to MSVC 2017), and allows you 
   to select the correct one, by showing a detailed list of their version and target architecture.
@@ -198,7 +197,9 @@ Caveat
 since the msbuild preference files inside `%AppData%\..\Local\Microsoft\MSBuild\v4.0` are shared
 between different MSVC installations, clcache will be activated for all instances of MSVC.
 
-    """.replace("MSBUILD_USER_SETTINGS_DIR", MSBUILD_USER_SETTINGS_DIR)
+    """
+    epilog = epilog.replace("MSBUILD_USER_SETTINGS_DIR", MSBUILD_USER_SETTINGS_DIR)
+    epilog = epilog.replace("APPDATAPATHLOCAL", env_utils.appDataPathLocal())
     helpTimeout = """clcache object cache timeout in seconds
     (increase if you have failures during your build)
     """
@@ -207,7 +208,7 @@ between different MSVC installations, clcache will be activated for all instance
         epilog=epilog,
         formatter_class=argparse.RawDescriptionHelpFormatter
         )
-    choices = ["status", "install", "disable", "enable_logs", "disable_logs", "show_cl_list", "select_cl"]
+    choices = ["status", "install", "enable", "disable", "enable_logs", "disable_logs", "show_cl_list", "select_cl"]
     parser.add_argument("action", choices=choices, help="action")
     parser.add_argument("--cachedir", help="clcache directory")
     parser.add_argument("--cache_size", help="clcache size in Go", type=int, default=0)
@@ -227,8 +228,11 @@ between different MSVC installations, clcache will be activated for all instance
             return False
         if not fullClcacheSetup():
             return False
+    elif args.action == "enable":
+        if not copyMsvcPrefClcache():
+            return False
     elif args.action == "disable":
-        if not clCacheDisable():
+        if not copyMsvcPrefOriginal():
             return False
     elif args.action == "enable_logs":
         if not env_utils.setAndStoreEnvVariable("CLCACHE_LOG", "1"):
