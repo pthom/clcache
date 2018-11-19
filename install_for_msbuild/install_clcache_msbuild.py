@@ -1,9 +1,9 @@
 
 import sys
 import argparse
+import winshell
 import env_utils
 import locate_cl_exe
-import winshell
 
 
 THIS_DIR = env_utils.fileDirNameAbsolute(__file__)
@@ -95,7 +95,7 @@ def showStatus():
         print("clcache is *ENABLED* in " + MSBUILD_USER_SETTINGS_DIR)
     else:
         print("clcache is *NOT ENABLED* in " + MSBUILD_USER_SETTINGS_DIR)
-    
+
     cl = env_utils.readEnvVariableFromRegistry("CLCACHE_CL")
     print("CLCACHE_CL (real compiler) is :" + cl)
     print("call clcache -s for statistics")
@@ -150,9 +150,9 @@ def selectCl():
 def fullClcacheSetup():
     if not installClcache():
         return False
-    if not copyMsvcPrefClcache():
-        return False
     if not selectCl():
+        return False
+    if not copyMsvcPrefClcache():
         return False
     if not showClCacheUsage():
         return False
@@ -244,11 +244,11 @@ between different MSVC installations, clcache will be activated for all instance
         epilog=epilog,
         formatter_class=argparse.RawDescriptionHelpFormatter
         )
-    choices = [ "status", "install", 
-                "enable", "disable",
-                'enable_server', "disable_server"
-                "enable_logs", "disable_logs", 
-                "show_cl_list", "select_cl"]
+    choices = ["status", "install",
+               "enable", "disable",
+               "enable_server", "disable_server"
+               "enable_logs", "disable_logs",
+               "show_cl_list", "select_cl"]
     parser.add_argument("action", choices=choices, help="action")
     parser.add_argument("--cachedir", help="clcache directory")
     parser.add_argument("--cache_size", help="clcache size in Go", type=int, default=0)

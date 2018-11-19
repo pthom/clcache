@@ -45,7 +45,7 @@ def implFindMsvcUpTo2015() -> typing.List[MsvcInstall]:
         valueName = "InstallDir"
         key = keyTemplate.replace("__VERSION__", version)
         installDir = env_utils.readRegistryValueLocalMachine(key, valueName)
-        if installDir is not None:
+        if installDir is not None and os.path.isdir(installDir):
             result.append(MsvcInstall(version, installDir))
     return result
 
@@ -67,10 +67,12 @@ def findMsvc() -> typing.List[MsvcInstall]:
 def implfindClExesForOldMsvc(msvcInstall: MsvcInstall) -> typing.List[ClInfo]:
     result = []
     mainClPath = env_utils.dirNameAbsolute(msvcInstall.installDir + "\\..\\..\\vc\\bin")
+    if not os.path.isdir(mainClPath):
+        return []
     subDirs = env_utils.listSubdirs(mainClPath, appendFolder=False) + ["."]
     def hasClExe(subdir):
         return os.path.isfile(mainClPath + "\\" + subdir + "\\cl.exe")
-    dirsWithCl = [ dir for dir in subDirs if hasClExe(dir)]
+    dirsWithCl = [dir for dir in subDirs if hasClExe(dir)]
     # dirWithCl is something like
     # ['amd64', 'amd64_arm', 'amd64_x86', 'x86_amd64', 'x86_arm', '.']
     # in this ist : "." = x86_x86 and amd64 = amd64_amd64
@@ -86,14 +88,14 @@ def implfindClExesForOldMsvc(msvcInstall: MsvcInstall) -> typing.List[ClInfo]:
             tokens = dirWithCl.split("_")
             hostArch = tokens[0]
             targetArch = tokens[1]
-        result.append( ClInfo(msvcInstall, fullDir, hostArch, targetArch ) )
+        result.append(ClInfo(msvcInstall, fullDir, hostArch, targetArch))
     return result
 
 
 def implfindClExesForMsvc2017(msvcInstall: MsvcInstall) -> typing.List[ClInfo]:
     result = []
     topDir = msvcInstall.installDir + "\\VC\\Tools\\MSVC"
-    for dirpath, dirnames, filenames in os.walk(topDir):
+    for dirpath, _, filenames in os.walk(topDir):
         for file in filenames:
             if file == "cl.exe":
                 # dirpath looks like
@@ -120,14 +122,14 @@ def findClExesList() -> typing.List[ClInfo]:
 
 def printClList(clInfoList: typing.List[ClInfo]) -> str:
     def clInfoToData(clInfo: ClInfo):
-        return [clInfo.msvcInstall.version, clInfo.targetArch, 
+        return [clInfo.msvcInstall.version, clInfo.targetArch,
                 clInfo.hostArch, env_utils.shortDirectoryName(clInfo.installDir)]
     headers = ["#", "version", "targetArch", "hostArch", "folder (shortened)"]
     data = [clInfoToData(clInfo) for clInfo in clInfoList]
     rowFormat = "{:>4}{:>18}{:>11}{:>11}{:>80}"
 
     print(rowFormat.format(*headers))
-    id = 1
+    rowId = 1
     for version in data:
-        print(rowFormat.format(id, *version))
-        id = id + 1
+        print(rowFormat.format(rowId, *version))
+        rowId = rowId + 1
