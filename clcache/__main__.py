@@ -23,6 +23,8 @@ import re
 import subprocess
 import sys
 import threading
+import time
+
 from tempfile import TemporaryFile
 from typing import Any, List, Tuple, Iterator
 
@@ -792,7 +794,12 @@ class Statistics:
     @untrackable
     def __exit__(self, typ, value, traceback):
         # Does not write to disc when unchanged
-        self._stats.save()
+        try:
+            self._stats.save()
+        except PermissionError:
+            printTraceStatement("self._stats.save() has failed. Trying a second time")
+            time.sleep(1)
+            self._stats.save()
 
     def __eq__(self, other):
         return type(self) is type(other) and self.__dict__ == other.__dict__
