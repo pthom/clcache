@@ -22,8 +22,11 @@ def createShortcut(src_file, dst_shortcut_path):
 
 
 def removeFile(filename):
-    os.remove(filename)
-    print("Removed file " +  filename)
+    if os.path.exists(filename):
+        os.remove(filename)
+        print("Removed file " +  filename)
+    else:
+        print("Cannot remove " +  filename + " (does not exist)")
 
 
 def runProcessDetached(command):
