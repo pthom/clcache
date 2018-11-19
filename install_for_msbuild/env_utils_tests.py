@@ -1,5 +1,8 @@
 #!/usr/bin/env python
+import os.path
+import time
 import unittest
+import winshell
 import env_utils
 import locate_cl_exe
 
@@ -11,6 +14,20 @@ class EnvUtilsTests(unittest.TestCase):
         env_utils.removeEnvVariable("DUMMYVAR")
         result = env_utils.readEnvVariableFromRegistry("DUMMYVAR")
         self.assertTrue(result is None)
+    def testShortcut(self):
+        pythonProg = env_utils.whereProgram("python")
+        dstFolder = winshell.startup()
+        dst = dstFolder + "\\python.lnk"
+        env_utils.createShortcut(pythonProg, dst)
+        self.assertTrue(os.path.exists(dst))
+        os.remove(dst)
+        self.assertTrue(not os.path.exists(dst))
+    # def testRunProcessDetached(self):
+    #     prog = env_utils.whereProgram("Calc.exe")
+    #     pid = env_utils.runProcessDetached(prog)
+    #     time.sleep(1)
+    #     env_utils.callAndShowCmd("taskkill /PID {}".format(pid))
+
 
 
 class LocateClTests(unittest.TestCase):

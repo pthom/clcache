@@ -3,6 +3,7 @@ import sys
 import argparse
 import env_utils
 import locate_cl_exe
+import winshell
 
 
 THIS_DIR = env_utils.fileDirNameAbsolute(__file__)
@@ -158,21 +159,56 @@ def fullClcacheSetup():
     return True
 
 
+def enableServer():
+    """
+    will enable the clache-server, start it,
+    and make sure that it starts when your computer starts.
+    """
+    env_utils.setAndStoreEnvVariable("CLCACHE_SERVER", "1")
+
+    env_utils.runProcessDetached(env_utils.pipScriptsDir() + "\\clcache-server.exe")
+
+    dstFolder = winshell.startup()
+    dst = dstFolder + "\\clache-server.lnk"
+    src = env_utils.pipScriptsDir() + "\\clcache-server.exe"
+    env_utils.createShortcut(src, dst)
+    return True
+
+
+def disableServer():
+    """
+    will disable the clcache-server and remove it from the startup programs.
+    Note : this does not kil the clcache-server.exe process,
+    however subsequent builds will not use it.
+    """
+    env_utils.removeEnvVariable("CLCACHE_SERVER")
+
+    dstFolder = winshell.startup()
+    dst = dstFolder + "\\clache-server.lnk"
+    env_utils.removeFile(dst)
+    return True
+
+
 def main():
     epilog = r"""Actions summary:
-    status       : Show the install status and tells if clcache is enabled    
-    install:     : Install and enable clcache for msbuild integration
-                  (will let you choose between the available cl.exe)
-    enable :     : Enable clcache for msbuild:
-                   Modifies the user msbuild preference files 
-                   inside APPDATAPATHLOCAL\Microsoft\MSBuild\v4.0
-    disable:     : Disable clcache
-                   Modifies the user msbuild preference files 
-                   inside APPDATAPATHLOCAL\Microsoft\MSBuild\v4.0
-    enable_logs  : Activate clcache logs during builds
-    disable_logs : Disable clcache logs during builds
-    show_cl_list : List available cl.exe compilers
-    select_cl    : Choose which cl.exe to activate
+    status         : Show the install status and tells if clcache is enabled    
+    install:       : Install and enable clcache for msbuild integration
+                     (will let you choose between the available cl.exe)
+    enable :       : Enable clcache for msbuild:
+                     Modifies the user msbuild preference files 
+                     inside APPDATAPATHLOCAL\Microsoft\MSBuild\v4.0
+    disable:       : Disable clcache
+                     Modifies the user msbuild preference files 
+                     inside APPDATAPATHLOCAL\Microsoft\MSBuild\v4.0
+    enable_server  : will enable the clache-server, start it, 
+                     and make sure that it starts when your computer starts.
+    disable_server : will disable the clcache-server and remove it from the startup programs.
+                     Note : this does not kil the clcache-server.exe process,
+                     however subsequent builds will not use it.
+    enable_logs    : Activate clcache logs during builds
+    disable_logs   : Disable clcache logs during builds
+    show_cl_list   : List available cl.exe compilers
+    select_cl      : Choose which cl.exe to activate
 
 What this script does:
 **********************
@@ -208,7 +244,11 @@ between different MSVC installations, clcache will be activated for all instance
         epilog=epilog,
         formatter_class=argparse.RawDescriptionHelpFormatter
         )
-    choices = ["status", "install", "enable", "disable", "enable_logs", "disable_logs", "show_cl_list", "select_cl"]
+    choices = [ "status", "install", 
+                "enable", "disable",
+                'enable_server', "disable_server"
+                "enable_logs", "disable_logs", 
+                "show_cl_list", "select_cl"]
     parser.add_argument("action", choices=choices, help="action")
     parser.add_argument("--cachedir", help="clcache directory")
     parser.add_argument("--cache_size", help="clcache size in Go", type=int, default=0)
@@ -233,6 +273,12 @@ between different MSVC installations, clcache will be activated for all instance
             return False
     elif args.action == "disable":
         if not copyMsvcPrefOriginal():
+            return False
+    elif args.action == "enable_server":
+        if not enableServer():
+            return False
+    elif args.action == "disable_server":
+        if not disableServer():
             return False
     elif args.action == "enable_logs":
         if not env_utils.setAndStoreEnvVariable("CLCACHE_LOG", "1"):
