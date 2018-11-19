@@ -35,7 +35,7 @@ between different MSVC installations, clcache will be activated for all instance
 usage: install_clcache_msbuild.py [-h] [--cachedir CACHEDIR]
                                   [--cache_size CACHE_SIZE]
                                   [--clcache_timeout CLCACHE_TIMEOUT]
-                                  {status,install,disable,enable_logs,disable_logs,show_cl_list,select_cl}
+                                  {status,install,enable,disable,enable_logs,disable_logs,show_cl_list,select_cl}
 ````
 
 Sample usage session:
