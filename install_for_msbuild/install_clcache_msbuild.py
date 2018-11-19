@@ -84,6 +84,11 @@ def showStatus():
     else:
         print("logs are disabled")
 
+    if env_utils.readEnvVariableFromRegistry("CLCACHE_SERVER") is not None:
+        print("clcache-server is enabled")
+    else:
+        print("clcache-server is disabled")
+
     prefFile = MSBUILD_USER_SETTINGS_DIR + "\\Microsoft.Cpp.Win32.user.props"
     isEnabled = False
     with open(prefFile, "r") as f:
@@ -181,7 +186,8 @@ def disableServer():
     Note : this does not kil the clcache-server.exe process,
     however subsequent builds will not use it.
     """
-    env_utils.removeEnvVariable("CLCACHE_SERVER")
+    if env_utils.readEnvVariableFromRegistry("CLCACHE_SERVER") is not None:
+        env_utils.removeEnvVariable("CLCACHE_SERVER")
 
     dstFolder = winshell.startup()
     dst = dstFolder + "\\clache-server.lnk"
@@ -230,7 +236,7 @@ As additional options, this script can also
 
 Caveat
 ******
-since the msbuild preference files inside `%AppData%\..\Local\Microsoft\MSBuild\v4.0` are shared
+since the msbuild preference files inside `APPDATAPATHLOCAL\Microsoft\MSBuild\v4.0` are shared
 between different MSVC installations, clcache will be activated for all instances of MSVC.
 
     """
@@ -246,7 +252,7 @@ between different MSVC installations, clcache will be activated for all instance
         )
     choices = ["status", "install",
                "enable", "disable",
-               "enable_server", "disable_server"
+               "enable_server", "disable_server",
                "enable_logs", "disable_logs",
                "show_cl_list", "select_cl"]
     parser.add_argument("action", choices=choices, help="action")
