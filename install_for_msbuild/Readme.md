@@ -29,13 +29,73 @@ between different MSVC installations, clcache will be activated for all instance
 ## Note
 `vswhere.exe` is a tool provided by Microsoft in order to locate installations of MSVC >= 2017.
 
-## Usage
+## Usage & help
 
 ````
+> python install_for_msbuild/install_clcache_msbuild.py -h
 usage: install_clcache_msbuild.py [-h] [--cachedir CACHEDIR]
                                   [--cache_size CACHE_SIZE]
                                   [--clcache_timeout CLCACHE_TIMEOUT]
-                                  {status,install,enable,disable,enable_logs,disable_logs,show_cl_list,select_cl}
+                                  {status,install,enable,disable,enable_server,disable_server,enable_logs,disable_logs,show_cl_list,select_cl}
+
+Configure clcache for use with msbuild
+
+positional arguments:
+  {status,install,enable,disable,enable_server,disable_server,enable_logs,disable_logs,show_cl_list,select_cl}
+                        action
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --cachedir CACHEDIR   clcache directory
+  --cache_size CACHE_SIZE
+                        clcache size in Go
+  --clcache_timeout CLCACHE_TIMEOUT
+                        clcache object cache timeout in seconds (increase if
+                        you have failures during your build)
+
+Actions summary:
+    status         : Show the install status and tells if clcache is enabled
+    install:       : Install and enable clcache for msbuild integration
+                     (will let you choose between the available cl.exe)
+    enable :       : Enable clcache for msbuild:
+                     Modifies the user msbuild preference files
+                     inside C:\Users\pascal\AppData\Local\Microsoft\MSBuild\v4.0
+    disable:       : Disable clcache
+                     Modifies the user msbuild preference files
+                     inside C:\Users\pascal\AppData\Local\Microsoft\MSBuild\v4.0
+    enable_server  : will enable the clache-server, start it,
+                     and make sure that it starts when your computer starts.
+    disable_server : will disable the clcache-server and remove it from the startup programs.
+                     Note : this does not kil the clcache-server.exe process,
+                     however subsequent builds will not use it.
+    enable_logs    : Activate clcache logs during builds
+    disable_logs   : Disable clcache logs during builds
+    show_cl_list   : List available cl.exe compilers
+    select_cl      : Choose which cl.exe to activate
+
+What this script does:
+**********************
+
+* Check that python3 and pip3 are installed and are in the PATH
+* Check that the pip installed scripts are in the PATH (PYTHONHOME\Scripts)
+* Call `pip install .` from the repo and check that clcache is then in the PATH.
+  `clcache` will subsequently be used from the PYTHONHOME\\Scripts directory.
+* Modify the user msbuild preference files inside `C:\Users\pascal\AppData\Local\Microsoft\MSBuild\v4.0`
+  so that clcache becomes the default compiler. (These prefs are shared between MSVC 2010 to 2017).
+* Find all cl.exes version on your computer (for MSVC 2010 to MSVC 2017), and allows you
+  to select the correct one, by showing a detailed list of their version and target architecture.
+* Set the env variable `CLCACHE_CL` with the correct path to cl.exe
+
+As additional options, this script can also
+* change the cache location
+* change the cache size
+* change the timeout CLCACHE_OBJECT_CACHE_TIMEOUT_MS
+
+Caveat
+******
+since the msbuild preference files inside `C:\Users\pascal\AppData\Local\Microsoft\MSBuild\v4.0` are shared
+between different MSVC installations, clcache will be activated for all instances of MSVC.
+
 ````
 
 Sample usage session:
